@@ -23,7 +23,12 @@
 #include <errno.h>
 #include <pwd.h>
 #include <grp.h>
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
+#endif
+#ifdef HAVE_NETGROUP_H
+#include <netgroup.h>
+#endif
 #include <string.h>
 #include <glib/gstdio.h>
 #include <locale.h>
@@ -2131,7 +2136,11 @@ get_users_in_net_group (PolkitIdentity                    *group,
 
   for (;;)
     {
+#ifdef HAVE_NETBSD
+      const char *hostname, *username, *domainname;
+#else
       char *hostname, *username, *domainname;
+#endif
       PolkitIdentity *user;
       GError *error = NULL;
 
@@ -2160,7 +2169,10 @@ get_users_in_net_group (PolkitIdentity                    *group,
 
   ret = g_list_reverse (ret);
 
+#ifdef HAVE_SETNETGRENT_RETURN
  out:
+#endif
+
   endnetgrent ();
   return ret;
 }

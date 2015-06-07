@@ -29,6 +29,10 @@
 #include <sys/sysctl.h>
 #include <sys/user.h>
 #endif
+#ifdef HAVE_NETBSD
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -88,6 +92,10 @@ static gint _polkit_unix_process_get_owner (PolkitUnixProcess  *process,
 
 #ifdef HAVE_FREEBSD
 static gboolean get_kinfo_proc (gint pid, struct kinfo_proc *p);
+#endif
+
+#ifdef HAVE_NETBSD
+static gboolean get_kinfo_proc (gint pid, struct kinfo_proc2 *p);
 #endif
 
 G_DEFINE_TYPE_WITH_CODE (PolkitUnixProcess, polkit_unix_process, G_TYPE_OBJECT,
@@ -554,12 +562,38 @@ get_kinfo_proc (pid_t pid, struct kinfo_proc *p)
 }
 #endif
 
+#ifdef HAVE_NETBSD
+static gboolean
+get_kinfo_proc (pid_t pid, struct kinfo_proc2 *p)
+{
+  int name[6];
+  u_int namelen;
+  size_t sz;
+
+  sz = sizeof(*p);
+  namelen = 0;
+  name[namelen++] = CTL_KERN;
+  name[namelen++] = KERN_PROC2;
+  name[namelen++] = KERN_PROC_PID;
+  name[namelen++] = pid;
+  name[namelen++] = sz;
+  name[namelen++] = 1;
+
+  if (sysctl (name, namelen, p, &sz, NULL, 0) == -1) {
+    perror("sysctl kern.proc2.pid");
+    return FALSE;
+  }
+
+  return TRUE;
+}
+#endif
+
 static guint64
 get_start_time_for_pid (pid_t    pid,
                         GError **error)
 {
   guint64 start_time;
-#ifndef HAVE_FREEBSD
+#if !defined(HAVE_FREEBSD) || !defined(HAVE_NETBSD)
   gchar *filename;
   gchar *contents;
   size_t length;
@@ -631,6 +665,27 @@ get_start_time_for_pid (pid_t    pid,
  out:
   g_free (filename);
   g_free (contents);
+
+#elif defined(HAVE_NETBSD)
+  struct kinfo_proc2 p;
+
+  start_time = 0;
+
+  if (! get_kinfo_proc (pid, &p))
+    {
+      g_set_error (error,
+                   POLKIT_ERROR,
+                   POLKIT_ERROR_FAILED,
+                   "Error obtaining start time for %d (%s)",
+                   (gint) pid,
+                   g_strerror (errno));
+      goto out;
+    }
+
+  start_time = (guint64) p.p_ustart_sec;
+
+out:
+
 #else
   struct kinfo_proc p;
 
@@ -664,6 +719,8 @@ _polkit_unix_process_get_owner (PolkitUnixProcess  *process,
   gchar **lines;
 #ifdef HAVE_FREEBSD
   struct kinfo_proc p;
+#elif defined(HAVE_NETBSD)
+  struct kinfo_proc2 p;
 #else
   gchar filename[64];
   guint n;
@@ -676,7 +733,7 @@ _polkit_unix_process_get_owner (PolkitUnixProcess  *process,
   lines = NULL;
   contents = NULL;
 
-#ifdef HAVE_FREEBSD
+#if defined(HAVE_FREEBSD) || defined(HAVE_NETBSD)
   if (get_kinfo_proc (process->pid, &p) == 0)
     {
       g_set_error (error,
@@ -687,8 +744,11 @@ _polkit_unix_process_get_owner (PolkitUnixProcess  *process,
                    g_strerror (errno));
       goto out;
     }
-
+#if defined(HAVE_FREEBSD)
   result = p.ki_uid;
+#else
+  result = p.p_uid;
+#endif
 #else
 
   /* see 'man proc' for layout of the status file

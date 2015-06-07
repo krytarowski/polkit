@@ -158,6 +158,8 @@ AC_CHECK_LIB(expat,XML_ParserCreate,[EXPAT_LIBS="-lexpat"],
 	     [AC_MSG_ERROR([Can't find expat library. Please install expat.])])
 AC_SUBST(EXPAT_LIBS)
 
+AC_CHECK_HEADERS(netdb.h netgroup.h)
+
 AC_CHECK_FUNCS(clearenv fdatasync)
 
 if test "x$GCC" = "xyes"; then
@@ -169,7 +171,12 @@ dnl - Check whether setnetgrent has a return value
 dnl ---------------------------------------------------------------------------
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	#include <stddef.h>
+	#ifdef HAVE_NETDB_H
 	#include <netdb.h>
+	#endif
+	#ifdef HAVE_NETGROUP_H
+	#include <netgroup.h>
+	#endif
 ]], [[
 	int r = setnetgrent (NULL);]])],
 [AC_DEFINE([HAVE_SETNETGRENT_RETURN], 1, [Define to 1 if setnetgrent has return value])])
@@ -440,6 +447,8 @@ if test x$with_os_type = x; then
 	with_os_type=solaris
     elif test x$operating_system = xfreebsd ; then
 	with_os_type=freebsd
+    elif test x$operating_system = xnetbsd ; then
+	with_os_type=netbsd
     else
         with_os_type=unknown
     fi
@@ -453,6 +462,7 @@ AM_CONDITIONAL(OS_TYPE_GENTOO, test x$with_os_type = xgentoo, [Running on Gentoo
 AM_CONDITIONAL(OS_TYPE_PARDUS, test x$with_os_type = xpardus, [Running on Pardus OS'es])
 AM_CONDITIONAL(OS_TYPE_SOLARIS, test x$with_os_type = xsolaris, [Running os Solaris OS'es])
 AM_CONDITIONAL(OS_TYPE_FREEBSD, test x$with_os_type = xfreebsd, [Running on FreeBSD OS'es])
+AM_CONDITIONAL(OS_TYPE_NETBSD, test x$with_os_type = xnetbsd, [Running on NetBSD OS'es])
 
 AC_ARG_WITH(pam-include, [  --with-pam-include=<file>  pam file to include])
 
@@ -472,11 +482,11 @@ elif test x$with_os_type = xsuse -o x$with_os_type = xsolaris ; then
    PAM_FILE_INCLUDE_ACCOUNT=common-account
    PAM_FILE_INCLUDE_PASSWORD=common-password
    PAM_FILE_INCLUDE_SESSION=common-session
-elif test x$with_os_type = xfreebsd ; then
-    PAM_FILE_INCLUDE_AUTH=system
-    PAM_FILE_INCLUDE_ACCOUNT=system
-    PAM_FILE_INCLUDE_PASSWORD=system
-    PAM_FILE_INCLUDE_SESSION=system
+elif test x$with_os_type = xfreebsd -o x$with_os_type = xnetbsd ; then
+   PAM_FILE_INCLUDE_AUTH=system
+   PAM_FILE_INCLUDE_ACCOUNT=system
+   PAM_FILE_INCLUDE_PASSWORD=system
+   PAM_FILE_INCLUDE_SESSION=system
 else
    PAM_FILE_INCLUDE_AUTH=system-auth
    PAM_FILE_INCLUDE_ACCOUNT=system-auth
@@ -504,6 +514,9 @@ case "$host_os" in
 	;;
   *freebsd*)
   	AC_DEFINE([HAVE_FREEBSD], 1, [Is this a FreeBSD system?])
+	;;
+  *netbsd*)
+	AC_DEFINE([HAVE_NETBSD], 1, [Is this a NetBSD system?])
 	;;
 esac
 

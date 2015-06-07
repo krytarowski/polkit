@@ -18,7 +18,12 @@
 
 #include "netgroup.h"
 
+#ifdef HAVE_NETDB_H
 #include <netdb.h>
+#endif
+#ifdef HAVE_NETGROUP_H
+#include <netgroup.h>
+#endif
 
 #include <ctype.h>
 #include <stdlib.h>

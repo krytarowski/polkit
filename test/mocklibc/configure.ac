@@ -14,7 +14,7 @@ AC_PROG_CC
 AC_PROG_LIBTOOL
 
 # Checks for header files.
-AC_CHECK_HEADERS([netdb.h stdlib.h string.h])
+AC_CHECK_HEADERS([netdb.h netgroup.h stdlib.h string.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_UID_T
